@@ -1,0 +1,1079 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Kasi Wiki</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        @font-face {
+            font-family: 'KasiFont';
+            src: url('Padmara.woff') format('woff'),
+            url('Padmara.ttf')  format('truetype');
+            font-weight: 100 900;
+            font-style: normal;
+            font-display: swap;
+        }
+
+        :root{
+            --amber:#fbbf24;
+            --amber-deep:#f59e0b;
+            --ink:#05080d;
+            --panel:#080c12;
+        }
+        *{box-sizing:border-box}
+        html{ -webkit-text-size-adjust:100% }
+        html,body{height:100%;height:100dvh;margin:0}
+        body{
+            font-family:'KasiFont', "Inter", system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background:var(--ink);
+            color:#fff;
+            overflow:hidden;
+            -webkit-font-smoothing:antialiased;
+        }
+
+        /* ============ HERO ============ */
+        .hero{
+            position:fixed;inset:0;
+            display:grid;place-items:center;
+            overflow:hidden;
+        }
+        .hero-bg{
+            position:absolute;
+            inset:-8%;
+            margin:0;
+            background-image:
+                    url("https://media.gettyimages.com/id/129380282/photo/south-africa-true-colour-satellite-image-with-mask-this-image-was-compiled-from-data-acquired.jpg?s=612x612&w=0&k=20&c=qoB1t6H_sYdvCp0KCZXqBN4vjwAZjCznHwnxxt5gjVw="),
+                    radial-gradient(circle at 30% 20%, #0b2233 0%, #05080d 70%);
+            background-position:center center;
+            background-size:cover;
+            background-repeat:no-repeat;
+            filter:blur(16px) brightness(.6) saturate(1.15);
+            transform:scale(1.12);
+        }
+        .hero-veil{
+            position:absolute;inset:0;
+            background:radial-gradient(ellipse at 50% 45%,
+            rgba(3,7,12,.10) 0%,
+            rgba(3,7,12,.70) 62%,
+            rgba(3,7,12,.94) 100%);
+        }
+        .hero-content{
+            position:relative;z-index:2;
+            width:100%;max-width:640px;
+            padding:24px;
+            text-align:center;
+        }
+        .title{
+            margin:0 0 34px;
+            font-size:clamp(2.8rem,10vw,5.8rem);
+            font-weight:normal;
+            letter-spacing:-.025em;
+            line-height:1;
+            background:linear-gradient(180deg,#ffffff 15%,#b7e4ff 65%,#4aa8d8 100%);
+            -webkit-background-clip:text;background-clip:text;
+            color:transparent;
+            filter:drop-shadow(0 12px 34px rgba(0,0,0,.7));
+        }
+
+        /* ---- search ---- */
+        .search-wrap{position:relative;margin:0 auto 20px;max-width:520px}
+        #search{
+            width:100%;
+            padding:18px 26px;
+            border-radius:999px;
+            border:1px solid rgba(255,255,255,.32);
+            background:rgba(255,255,255,.10);
+            -webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);
+            color:#fff;font-size:1.02rem;
+            outline:none;
+            font-family:'KasiFont', inherit;
+            transition:box-shadow .2s ease,border-color .2s ease,background .2s ease;
+        }
+        #search::placeholder{color:rgba(255,255,255,.66)}
+        #search:focus{
+            border-color:rgba(255,255,255,.85);
+            background:rgba(255,255,255,.17);
+            box-shadow:0 0 0 6px rgba(255,255,255,.09), 0 18px 40px rgba(0,0,0,.5);
+        }
+        .suggest{
+            position:absolute;top:calc(100% + 10px);left:0;right:0;
+            background:rgba(8,12,18,.94);
+            -webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);
+            border:1px solid rgba(255,255,255,.14);
+            border-radius:18px;
+            overflow:hidden;
+            display:none;
+            text-align:left;
+            box-shadow:0 24px 60px rgba(0,0,0,.6);
+            max-height:min(320px,45vh);overflow-y:auto;
+        }
+        .suggest.on{display:block}
+        .sug{
+            display:block;width:100%;
+            padding:11px 18px;
+            background:none;border:0;border-bottom:1px solid rgba(255,255,255,.07);
+            color:#e8eef6;text-align:left;cursor:pointer;font-family:inherit;
+        }
+        .sug:last-child{border-bottom:0}
+        .sug:hover,.sug.kb{background:rgba(251,191,36,.14)}
+        .sug b{display:block;font-size:.94rem}
+        .sug span{display:block;font-size:.74rem;color:#8ea3b8;letter-spacing:.04em;text-transform:uppercase;margin-top:2px}
+        .sug-empty{padding:14px 18px;font-size:.85rem;color:#8ea3b8}
+
+        /* ---- CTA (grey) ---- */
+        .cta{
+            border:0;cursor:pointer;
+            padding:15px 34px;
+            border-radius:999px;
+            font-family:'KasiFont', inherit;
+            font-size:.98rem;font-weight:normal;letter-spacing:.02em;
+            color:#fff;
+            background:linear-gradient(135deg,#a1a1aa 0%,#71717a 45%,#52525b 100%);
+            box-shadow:0 14px 34px rgba(113,113,122,.35), inset 0 1px 0 rgba(255,255,255,.2);
+            transition:transform .16s ease, box-shadow .16s ease;
+        }
+        .cta:hover{transform:translateY(-2px);box-shadow:0 20px 44px rgba(113,113,122,.45), inset 0 1px 0 rgba(255,255,255,.2)}
+        .cta:active{transform:translateY(0) scale(.98)}
+
+        /* ============ MAP SCREEN ============ */
+        #mapScreen{
+            position:fixed;inset:0;z-index:100;
+            display:none;
+            background:var(--ink);
+        }
+        #mapScreen.on{display:block;animation:fade .35s ease both}
+        @keyframes fade{from{opacity:0}to{opacity:1}}
+
+        #map{position:absolute;inset:0;background:#080d13;z-index:0}
+        .leaflet-tile-pane{filter:saturate(.9) brightness(.82) contrast(1.05)}
+
+        /* ---- floating panel ---- */
+        #panel{
+            position:absolute;z-index:900;
+            top:clamp(8px,1.5vw,16px);
+            left:clamp(8px,1.5vw,16px);
+            bottom:clamp(8px,1.5vw,16px);
+            width:min(330px, calc(100vw - 32px));
+            display:flex;flex-direction:column;
+            background:rgba(8,12,18,.84);
+            -webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);
+            border:1px solid rgba(255,255,255,.12);
+            border-radius:20px;
+            box-shadow:0 26px 70px rgba(0,0,0,.65);
+            overflow:hidden;
+            color:#e8eef6;
+            transition:transform .3s cubic-bezier(.4,0,.2,1), opacity .3s ease;
+        }
+        .panel-head{
+            display:flex;gap:12px;align-items:flex-start;
+            padding:16px 16px 12px;
+            border-bottom:1px solid rgba(255,255,255,.08);
+        }
+        #backBtn{
+            flex:0 0 auto;
+            width:36px;height:36px;
+            border-radius:12px;border:1px solid rgba(255,255,255,.16);
+            background:rgba(255,255,255,.06);
+            color:#fff;font-size:1rem;line-height:1;cursor:pointer;
+            transition:background .15s ease;
+            font-family:'KasiFont', inherit;
+        }
+        #backBtn:hover{background:rgba(255,255,255,.16)}
+        .panel-kicker{
+            font-family:'KasiFont', inherit;
+            font-size:.64rem;letter-spacing:.22em;text-transform:uppercase;
+            color:var(--amber);font-weight:normal;margin-bottom:3px;
+        }
+        #panelTitle{margin:0;font-size:1.12rem;font-weight:normal;line-height:1.15}
+        #panelSub{margin-top:3px;font-size:.74rem;color:#8ea3b8}
+
+        .chips{
+            display:flex;flex-wrap:wrap;gap:6px;
+            padding:12px 16px;
+            border-bottom:1px solid rgba(255,255,255,.08);
+        }
+        .chip{
+            padding:6px 11px;border-radius:999px;cursor:pointer;
+            font-family:'KasiFont', inherit;font-size:.7rem;font-weight:normal;letter-spacing:.01em;
+            color:#b9c9d9;
+            background:rgba(255,255,255,.05);
+            border:1px solid rgba(255,255,255,.12);
+            transition:.15s ease;
+        }
+        .chip:hover{color:#fff;background:rgba(56,189,248,.22);border-color:rgba(56,189,248,.5)}
+        .chip.on{color:#1a1205;background:var(--amber);border-color:var(--amber)}
+
+        .panel-list{flex:1;overflow-y:auto;padding:8px;scrollbar-width:thin}
+        .panel-list::-webkit-scrollbar{width:8px}
+        .panel-list::-webkit-scrollbar-thumb{background:rgba(255,255,255,.16);border-radius:8px}
+
+        .kasi-row{
+            display:grid;
+            grid-template-columns:1fr auto;
+            grid-template-areas:"name pop" "meta pop";
+            gap:1px 10px;
+            width:100%;text-align:left;
+            padding:9px 12px;margin-bottom:3px;
+            border:1px solid transparent;border-radius:12px;
+            background:none;color:inherit;font-family:inherit;cursor:pointer;
+            transition:.14s ease;
+        }
+        .kasi-row:hover{background:rgba(255,255,255,.07)}
+        .kasi-row.active{background:rgba(251,191,36,.14);border-color:rgba(251,191,36,.45)}
+        .kr-name{grid-area:name;font-size:.86rem;font-weight:normal}
+        .kr-meta{grid-area:meta;font-size:.68rem;color:#8ea3b8;text-transform:uppercase;letter-spacing:.04em}
+        .kr-pop{grid-area:pop;align-self:center;font-size:.7rem;font-weight:normal;color:var(--amber)}
+
+        .hint{
+            position:absolute;left:50%;bottom:18px;transform:translateX(-50%);
+            z-index:900;
+            padding:9px 18px;border-radius:999px;
+            font-size:.74rem;color:#cfe2f2;
+            background:rgba(8,12,18,.78);
+            -webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);
+            border:1px solid rgba(255,255,255,.10);
+            white-space:nowrap;pointer-events:none;
+            max-width:calc(100vw - 40px);
+            overflow:hidden;text-overflow:ellipsis;
+        }
+
+        #toast{
+            position:absolute;left:50%;top:16px;transform:translateX(-50%) translateY(-20px);
+            z-index:1200;
+            padding:11px 20px;border-radius:12px;
+            background:rgba(190,40,40,.95);color:#fff;font-size:.8rem;
+            opacity:0;transition:.3s ease;pointer-events:none;max-width:70vw;
+        }
+        #toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+
+        /* ---- leaflet skin ---- */
+        .leaflet-container{background:#080d13;font-family:inherit}
+        .leaflet-popup-content-wrapper{
+            background:#0d131b;color:#e8eef6;
+            border-radius:16px;border:1px solid rgba(255,255,255,.14);
+            box-shadow:0 22px 50px rgba(0,0,0,.7);
+        }
+        .leaflet-popup-tip{background:#0d131b;border:1px solid rgba(255,255,255,.14)}
+        .leaflet-popup-content{margin:15px 17px;font-size:13px;line-height:1.5}
+        .leaflet-popup-close-button{color:#8ea3b8 !important;padding:8px 8px 0 0 !important}
+        .pop h3{margin:0;font-size:1.02rem;font-weight:normal}
+        .pop-sub{font-size:.68rem;letter-spacing:.08em;text-transform:uppercase;color:#8ea3b8;margin-top:3px}
+        .pop-pop{margin:9px 0 0;font-weight:normal;color:var(--amber);font-size:.86rem;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+        .pop ul{margin:9px 0 0;padding-left:16px;color:#c6d5e4;font-size:.8rem}
+        .pop li{margin-bottom:4px}
+        .pop canvas{margin-top:10px;display:block;}
+
+        .leaflet-tooltip.kasi-tip{
+            background:rgba(8,12,18,.92);
+            border:1px solid rgba(255,255,255,.16);
+            color:#fff;border-radius:9px;padding:4px 9px;
+            font-size:11px;font-weight:normal;letter-spacing:.03em;
+            box-shadow:0 8px 22px rgba(0,0,0,.55);
+        }
+        .leaflet-tooltip-top::before,.leaflet-tooltip-bottom::before,
+        .leaflet-tooltip-left::before,.leaflet-tooltip-right::before{display:none}
+
+        /* ===== MINIMIZE / RESTORE ===== */
+        #panel.minimized{
+            transform: translateX(calc(-100% - 24px));
+            opacity: 0;
+            pointer-events: none;
+        }
+        .panel-title-group{flex:1;min-width:0}
+
+        #minBtn{
+            flex:0 0 auto;
+            margin-left:auto;
+            width:36px;height:36px;
+            border-radius:12px;
+            border:1px solid rgba(255,255,255,.16);
+            background:rgba(255,255,255,.06);
+            color:#fff;font-size:1.15rem;line-height:1;cursor:pointer;
+            transition:background .15s ease;
+        }
+        #minBtn:hover{background:rgba(255,255,255,.16)}
+
+        #restoreBtn{
+            position:absolute;z-index:950;
+            top:clamp(8px,1.5vw,16px);
+            left:clamp(8px,1.5vw,16px);
+            display:none;
+            align-items:center;gap:8px;
+            padding:10px 16px;border-radius:999px;cursor:pointer;
+            font-family:inherit;font-size:.82rem;font-weight:normal;letter-spacing:.02em;
+            color:#fff;
+            background:rgba(8,12,18,.86);
+            -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
+            border:1px solid rgba(255,255,255,.18);
+            box-shadow:0 14px 34px rgba(0,0,0,.55);
+            transition:background .15s ease;
+        }
+        #restoreBtn.on{display:inline-flex;animation:popIn .25s ease both}
+        #restoreBtn:hover{background:rgba(56,189,248,.22)}
+        @keyframes popIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+
+        /* ===== MAP ACTIONS ===== */
+        .map-actions{
+            position:absolute;
+            top:clamp(8px,1.5vw,16px);
+            right:clamp(8px,1.5vw,16px);
+            z-index:900;
+            display:flex;
+            flex-direction:row;
+            flex-wrap:nowrap;
+            align-items:center;
+            gap:8px;
+        }
+        #showAllBtn, #fsBtn, #atmBtn{
+            position:static;
+            flex:0 0 auto;
+            white-space:nowrap;
+            padding:11px 20px;border-radius:999px;cursor:pointer;
+            font-family:inherit;font-size:.82rem;font-weight:normal;
+            color:#dff3ff;
+            background:rgba(8,12,18,.84);
+            -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
+            border:1px solid rgba(125,211,252,.4);
+            box-shadow:0 14px 34px rgba(0,0,0,.5);
+            transition:.15s ease;
+        }
+        #atmBtn{order:0}
+        #showAllBtn{order:1}
+        #fsBtn{order:2}
+        #atmBtn.on{color:#1a1205;background:var(--amber);border-color:var(--amber)}
+        #showAllBtn:hover, #fsBtn:hover, #atmBtn:hover{
+            background:rgba(56,189,248,.22);border-color:#7dd3fc;
+        }
+
+        .atm-legend{
+            position:absolute;right:clamp(8px,1.5vw,16px);bottom:112px;z-index:900;
+            display:none;padding:10px 12px;border-radius:14px;
+            font-size:.7rem;color:#dff3ff;line-height:1.7;
+            background:rgba(8,12,18,.84);
+            -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
+            border:1px solid rgba(255,255,255,.14);
+        }
+        .atm-legend.on{display:block}
+        .atm-legend i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:7px;border:1px solid #05080d}
+
+        @media (max-width:720px){
+            #panel{top:auto;left:8px;right:8px;bottom:8px;width:auto;height:44vh;border-radius:18px}
+            #panel.minimized{transform:translateY(calc(100% + 24px))}
+            .hint{display:none}
+            .map-actions{top:8px;right:8px;gap:6px}
+            #showAllBtn, #fsBtn, #atmBtn{padding:9px 14px;font-size:.74rem}
+            .atm-legend{bottom:calc(44vh + 16px)}
+            #restoreBtn{top:8px;left:8px;padding:9px 14px;font-size:.74rem}
+        }
+    </style>
+</head>
+<body>
+
+<!-- ================= HERO ================= -->
+<main class="hero">
+    <div class="hero-bg" role="img" aria-label="Satellite image of South Africa"></div>
+    <div class="hero-veil"></div>
+
+    <div class="hero-content">
+        <h1 class="title">Kasi Wiki</h1>
+
+        <div class="search-wrap">
+            <input id="search" type="text" placeholder="wat is joe kasi" autocomplete="off" spellcheck="false" aria-label="Search kasis">
+            <div id="suggest" class="suggest"></div>
+        </div>
+
+        <button id="listBtn" class="cta">list all kasi's</button>
+    </div>
+</main>
+
+<!-- ================= MAP SCREEN ================= -->
+<section id="mapScreen" aria-hidden="true">
+    <div id="map"></div>
+
+    <aside id="panel">
+        <div class="panel-head">
+            <button id="backBtn" title="Back to search" aria-label="Back to search">←</button>
+            <div class="panel-title-group">
+                <div class="panel-kicker">Kasi Wiki</div>
+                <h2 id="panelTitle">All kasis</h2>
+                <div id="panelSub">—</div>
+            </div>
+            <button id="minBtn" title="Minimize panel (Esc)" aria-label="Minimize panel">«</button>
+        </div>
+        <div class="chips" id="chips"></div>
+        <div class="panel-list" id="panelList"></div>
+    </aside>
+
+    <button id="restoreBtn" title="Show the kasi list" aria-label="Show the kasi list">☰ Kasis</button>
+
+    <div class="map-actions">
+        <button id="atmBtn" aria-pressed="false" title="Show ATMs and bank ATMs">🏧 ATMs</button>
+        <button id="showAllBtn">Show all kasis</button>
+        <button id="fsBtn">⛶ Fullscreen</button>
+    </div>
+
+    <div class="atm-legend" id="atmLegend"></div>
+
+    <div class="hint">Click a province to zoom in and reveal its kasis</div>
+    <div id="toast"></div>
+</section>
+
+<script>
+    /* =========================================================
+       1. DATA  (loads kasi-data.json; falls back to the copy
+          embedded below so the page also works from file://)
+       ========================================================= */
+    const EMBEDDED = {"metadata": {"project": "Kasi Wiki", "version": "1.1.0", "last_updated": "2026-11-21", "total_townships": 37, "notes": "Population/households are Census 2011 main-place baselines. Life expectancy is a rough estimate, not an official township-level figure."}, "townships": [{"id": 0, "name": "Soweto", "municipality": "Johannesburg", "province": "Gauteng", "coordinates": {"lat": -26.2678, "lng": 27.8585}, "population": 1271628, "population_year": 2011, "households": 355331, "area_km2": 200.03, "density_per_km2": 6357, "languages": {"isiZulu": 37.1, "Sesotho": 15.5, "Setswana": 12.9, "Xitsonga": 8.9, "isiXhosa": 8.5, "Sepedi": 5.3}, "health_district": "City of Johannesburg", "life_expectancy_estimate": 65.2, "economy": "R20B+ local township economy. Retail (Maponya Mall, Jabulani Mall), Vilakazi Street tourism corridor, informal spaza networks, taxi transport interchanges (Bara Taxi Rank), urban agriculture.", "culture": "Birthplace of Kwaito and international political heritage. Home to two Nobel Peace Prize laureates (Nelson Mandela & Desmond Tutu), Orlando Towers, Hector Pieterson Memorial, and football powerhouses Kaizer Chiefs and Orlando Pirates.", "facts": ["South Africa's largest township by population.", "Vilakazi Street is the only street in the world where two Nobel Peace Prize laureates lived — Nelson Mandela and Desmond Tutu.", "Founded in the 1930s after Black residents were removed from Johannesburg's inner city."]}, {"id": 1, "name": "Thembisa", "municipality": "Ekurhuleni (Kempton Park)", "province": "Gauteng", "coordinates": {"lat": -25.9987, "lng": 28.2295}, "population": 463109, "population_year": 2011, "households": 166340, "area_km2": 42.8, "density_per_km2": 10820, "languages": {"Sepedi": 33.1, "isiZulu": 21.6, "Xitsonga": 13.3, "isiXhosa": 9.4, "Sesotho": 8.1}, "health_district": "Ekurhuleni", "life_expectancy_estimate": 64.8, "economy": "Major commercial feeder to the OR Tambo International industrial corridor. Strong informal manufacturing, automotive repair hubs, spaza supply chains, and entertainment hubs.", "culture": "Pioneer in South African house and Amapiano music production. Vibrant social gathering spaces, annual street festivals, and rich Sepedi and Xitsonga cultural fusion.", "facts": ["Second most populous township in South Africa.", "Established in 1957 to house workers for the East Rand's factories.", "Name means 'hope' or 'promise'."]}, {"id": 2, "name": "Katlehong", "municipality": "Ekurhuleni (Germiston)", "province": "Gauteng", "coordinates": {"lat": -26.3333, "lng": 28.15}, "population": 407294, "population_year": 2011, "households": 133622, "area_km2": 55.36, "density_per_km2": 7357, "languages": {"isiZulu": 38.3, "Sesotho": 22.9, "isiXhosa": 13.4, "Sepedi": 7.8, "Xitsonga": 7.1}, "health_district": "Ekurhuleni", "life_expectancy_estimate": 64.8, "economy": "Proximity to the Wadeville and Alrode industrial belts. Significant commuter economy, informal metal fabrication, logistics hubs, and retail centres.", "culture": "Deep historical roots in the anti-apartheid struggle. Famous for grassroots sports development, street soccer tournaments, and traditional shisanyama venues.", "facts": ["One of the largest townships on the East Rand.", "Name means 'place of progress' in Sesotho.", "Part of a continuous urban belt with Thokoza and Vosloorus."]}, {"id": 3, "name": "Soshanguve", "municipality": "Tshwane (Pretoria)", "province": "Gauteng", "coordinates": {"lat": -25.5333, "lng": 28.1}, "population": 403162, "population_year": 2011, "households": 107077, "area_km2": 126.77, "density_per_km2": 3180, "languages": {"Sepedi": 28.3, "Setswana": 17.1, "Xitsonga": 15.0, "isiZulu": 13.8, "Sesotho": 8.2}, "health_district": "Tshwane", "life_expectancy_estimate": 66.1, "economy": "Academic and commuter hub anchored by Tshwane University of Technology (Soshanguve Campus). High concentration of student housing, informal retail, and transport hubs.", "culture": "Ethnically inclusive by name and design. Near the Tswaing Meteorite Crater heritage site; known for street fashion subcultures and Bacardi/Amapiano soundscapes.", "facts": ["Name is an acronym of SOtho, SHAngaan, NGUni and VEnda — the language groups of its first residents.", "Planned in the 1970s north of Pretoria.", "One of the fastest-growing townships in Gauteng."]}, {"id": 4, "name": "Mamelodi", "municipality": "Tshwane (Pretoria)", "province": "Gauteng", "coordinates": {"lat": -25.7167, "lng": 28.4}, "population": 334577, "population_year": 2011, "households": 110703, "area_km2": 45.19, "density_per_km2": 7404, "languages": {"Sepedi": 42.3, "isiZulu": 12.2, "Xitsonga": 10.7, "Setswana": 9.8, "Sesotho": 8.1}, "health_district": "Tshwane", "life_expectancy_estimate": 66.1, "economy": "Close economic ties to the Silverton and Waltloo industrial areas (automotive manufacturing). Strong micro-enterprise sector, Solomon Mahlangu Square retail precinct, and taxi associations.", "culture": "Birthplace of jazz icon Philip Tabane and Malombo music. Home-ground culture of Mamelodi Sundowns FC and historic anti-apartheid resistance landmarks.", "facts": ["Established in 1953 east of Pretoria.", "Its name is linked to the whistling of a local farmer calling his cattle, and is popularly read as 'Mother of Melodies'.", "Home to the Mamelodi Sundowns football club's supporter heartland."]}, {"id": 5, "name": "Sebokeng", "municipality": "Emfuleni (Vanderbijlpark)", "province": "Gauteng", "coordinates": {"lat": -26.5833, "lng": 27.8333}, "population": 218515, "population_year": 2011, "households": 61515, "area_km2": 46.23, "density_per_km2": 4727, "languages": {"Sesotho": 52.9, "isiZulu": 21.6, "isiXhosa": 8.9, "Setswana": 5.2}, "health_district": "Sedibeng", "life_expectancy_estimate": 63.9, "economy": "Integrated into the Vaal industrial steel belt (Vanderbijlpark). Strong informal economy, township retail centres, and residential property letting.", "culture": "Focal point of the 1984 Vaal Uprising. Vibrant Sesotho music traditions (including Famo), community soccer leagues, and local cuisine.", "facts": ["Largest township in the Vaal Triangle.", "Built in the 1960s to house workers for the Vaal steel and petrochemical industries.", "Name means 'place of gathering'."]}, {"id": 6, "name": "Ivory Park", "municipality": "Johannesburg (Midrand)", "province": "Gauteng", "coordinates": {"lat": -25.994, "lng": 28.156}, "population": 184383, "population_year": 2011, "households": 69367, "area_km2": 9.21, "density_per_km2": 20020, "languages": {"Sepedi": 32.8, "isiZulu": 21.1, "Xitsonga": 17.7, "isiXhosa": 8.4, "Sesotho": 6.9}, "health_district": "City of Johannesburg", "life_expectancy_estimate": 65.2, "economy": "High-density micro-enterprise zone adjacent to the Midrand commercial node. Micro-retailing, hair salons, informal food vending, street-level logistics, and backyard rental housing.", "culture": "Evolving cosmopolitan identity blending Northern Sotho, Tsonga, and Zulu practices. Active community radio, youth arts centres, and informal street dining.", "facts": ["Grew rapidly in the 1990s through informal settlement.", "Sits between Midrand, Tembisa and Kempton Park.", "One of the most densely settled areas in Region A of Johannesburg."]}, {"id": 7, "name": "Alexandra", "municipality": "Johannesburg (Sandton)", "province": "Gauteng", "coordinates": {"lat": -26.1036, "lng": 28.0907}, "population": 179624, "population_year": 2011, "households": 63737, "area_km2": 6.91, "density_per_km2": 25995, "languages": {"isiZulu": 30.1, "Sepedi": 26.4, "Xitsonga": 11.7, "Sesotho": 9.2, "isiXhosa": 7.3}, "health_district": "City of Johannesburg", "life_expectancy_estimate": 65.2, "economy": "Direct proximity to the Sandton commercial core. High informal rental density, micro-manufacturing, street markets (Pan Africa Shopping Centre), and informal recycling networks.", "culture": "'Gomora' — established 1912. Rich jazz heritage, former home of Nelson Mandela, and birthplace of distinct urban slang and fashion.", "facts": ["Founded in 1912 — one of South Africa's oldest townships.", "Roughly 7 km² with extreme population density, directly beside Sandton.", "Known locally as 'Gomora'."]}, {"id": 8, "name": "Diepsloot", "municipality": "Johannesburg", "province": "Gauteng", "coordinates": {"lat": -25.9333, "lng": 27.9667}, "population": 138329, "population_year": 2011, "households": 53221, "area_km2": 12.0, "density_per_km2": 11527, "languages": {"Sepedi": 35.3, "isiZulu": 19.2, "Xitsonga": 11.7, "Setswana": 8.4, "isiXhosa": 7.1}, "health_district": "City of Johannesburg", "life_expectancy_estimate": 65.2, "economy": "Strategic position between Johannesburg and Pretoria along the N1/R511 corridors. Micro-construction, informal retail, recycling networks, and transport services.", "culture": "Highly dynamic multi-provincial and migrant community. Active community arts programmes, youth development centres, and informal street music scenes.", "facts": ["Founded in 1994 on a farm north of Johannesburg.", "One of the densest and youngest settlements in the city.", "Constantly expanding through in-migration."]}, {"id": 9, "name": "Khutsong", "municipality": "Merafong (Carletonville)", "province": "Gauteng", "coordinates": {"lat": -26.3833, "lng": 27.4}, "population": 62457, "population_year": 2011, "households": 19842, "area_km2": 11.45, "density_per_km2": 5455, "languages": {"Setswana": 34.6, "Sesotho": 24.1, "isiXhosa": 18.9, "isiZulu": 11.2}, "health_district": "West Rand", "life_expectancy_estimate": 63.5, "economy": "Mining-dependent economy (Carletonville gold basin). Informal trade supplying mine workers, transport associations, and local retail services.", "culture": "Deep connection to migrant labour history from the Eastern Cape, Lesotho, and Free State. Strong mining folklore and union organising history.", "facts": ["Established in the 1950s for gold mine workers.", "Became known nationally for its 2005–06 anti-municipal-boundary protests."]}, {"id": 10, "name": "Umlazi", "municipality": "eThekwini (Durban)", "province": "KwaZulu-Natal", "coordinates": {"lat": -29.9667, "lng": 30.8833}, "population": 404811, "population_year": 2011, "households": 105492, "area_km2": 47.46, "density_per_km2": 8530, "languages": {"isiZulu": 91.4, "isiXhosa": 3.2, "English": 2.1}, "health_district": "eThekwini", "life_expectancy_estimate": 63.8, "economy": "Mega-township economy with major retail nodes (Umlazi Mega City). Significant informal entertainment economy, light industrial parks, and passenger rail commuters.", "culture": "A capital of shisanyama culture and KZN township lifestyle. Major influence on Gqom and Maskandi music. King Zwelithini Stadium is a primary sports and cultural arena.", "facts": ["The largest township in KwaZulu-Natal and fourth largest in South Africa.", "Established in 1960 south-west of Durban.", "Its name refers to the uMlazi river."]}, {"id": 11, "name": "KwaMashu", "municipality": "eThekwini (Durban)", "province": "KwaZulu-Natal", "coordinates": {"lat": -29.75, "lng": 30.9833}, "population": 175663, "population_year": 2011, "households": 46128, "area_km2": 21.47, "density_per_km2": 8182, "languages": {"isiZulu": 91.2, "isiXhosa": 2.9, "English": 2.4}, "health_district": "eThekwini", "life_expectancy_estimate": 63.8, "economy": "Commercial hub at the Bridge City precinct serving northern eThekwini. Strong informal trade, commuter logistics, and automotive repair workshops.", "culture": "Rich artistic heritage; home to the Ekhaya Multi Arts Centre. Birthplace of renowned South African actors, musicians, and playwrights.", "facts": ["Established in 1958 north of Durban.", "Named after Sir Marshall Campbell — 'Mashu' is the isiZulu rendering of Marshall."]}, {"id": 12, "name": "Inanda", "municipality": "eThekwini (Durban)", "province": "KwaZulu-Natal", "coordinates": {"lat": -29.6833, "lng": 30.9333}, "population": 158619, "population_year": 2011, "households": 41230, "area_km2": 26.83, "density_per_km2": 5912, "languages": {"isiZulu": 89.6, "isiXhosa": 4.8, "English": 2.2}, "health_district": "eThekwini", "life_expectancy_estimate": 63.8, "economy": "Agriculture, eco-tourism along the Inanda Heritage Route, informal building-material suppliers, and commuter transport to Umhlanga/Durban North.", "culture": "Historic spiritual and political cradle: Gandhi's Phoenix Settlement, John Dube's Ohlange Institute (where Nelson Mandela voted in 1994), and Shembe Church (Nazareth Baptist Church) sacred sites.", "facts": ["Home to Mahatma Gandhi's Phoenix Settlement and John Dube's Ohlange Institute.", "Nelson Mandela cast his first vote in 1994 at Ohlange.", "One of the most historically significant townships in the country."]}, {"id": 13, "name": "Edendale", "municipality": "Msunduzi (Pietermaritzburg)", "province": "KwaZulu-Natal", "coordinates": {"lat": -29.6333, "lng": 30.3167}, "population": 140891, "population_year": 2011, "households": 36410, "area_km2": 49.62, "density_per_km2": 2839, "languages": {"isiZulu": 91.5, "English": 3.4, "Sesotho": 1.6}, "health_district": "uMgungundlovu", "life_expectancy_estimate": 62.9, "economy": "Primary residential node for the Pietermaritzburg workforce. Greater Edendale Mall commercial hub, public-sector employment, and informal agriculture.", "culture": "Historic mission-station land tenure (freehold ownership dating back to the 1850s).", "facts": ["One of the oldest Black urban areas in KZN, with freehold roots going back to the 1850s."]}, {"id": 14, "name": "Khayelitsha", "municipality": "Cape Town", "province": "Western Cape", "coordinates": {"lat": -34.0333, "lng": 18.65}, "population": 391749, "population_year": 2011, "households": 118809, "area_km2": 38.71, "density_per_km2": 10120, "languages": {"isiXhosa": 90.5, "English": 3.2, "Afrikaans": 1.6}, "health_district": "Cape Town Metro", "life_expectancy_estimate": 68.1, "economy": "Large informal economy. Major retail nodes (Khayelitsha Mall), tech start-up hubs (Bandwidth Barn), township tourism, coffee shops, and construction.", "culture": "Meaning 'Our New Home' (est. 1983). Dynamic arts scene, youth choir traditions, township gastronomy, and cultural sites such as Lookout Hill.", "facts": ["The largest township in the Western Cape, established in 1983.", "Its name means 'new home' in isiXhosa.", "Contains a mix of formal housing and large informal settlements."]}, {"id": 15, "name": "Philippi", "municipality": "Cape Town", "province": "Western Cape", "coordinates": {"lat": -34.0167, "lng": 18.55}, "population": 200603, "population_year": 2011, "households": 64361, "area_km2": 31.89, "density_per_km2": 6290, "languages": {"isiXhosa": 78.6, "Afrikaans": 11.2, "English": 4.8}, "health_district": "Cape Town Metro", "life_expectancy_estimate": 68.1, "economy": "Major agricultural hub via the Philippi Horticultural Area (supplying Cape Town with fresh produce). Philippi Village hosts social enterprise, micro-logistics, and recycling businesses.", "culture": "Diverse agricultural and urban community with strong youth empowerment initiatives, community farming projects, and traditional Xhosa ceremonies.", "facts": ["One of Cape Town's largest and fastest-growing townships.", "Sits on the Cape Flats, adjacent to Khayelitsha."]}, {"id": 16, "name": "Gugulethu", "municipality": "Cape Town", "province": "Western Cape", "coordinates": {"lat": -33.9833, "lng": 18.5667}, "population": 98468, "population_year": 2011, "households": 29577, "area_km2": 6.49, "density_per_km2": 15172, "languages": {"isiXhosa": 88.6, "English": 4.1, "Afrikaans": 2.1}, "health_district": "Cape Town Metro", "life_expectancy_estimate": 68.1, "economy": "Close to Cape Town International Airport. Key nodes include Gugulethu Square, the culinary destination Mzoli's Place, and street-market trade.", "culture": "'Gugs' — established in the 1950s. Historic anti-apartheid legacy (Gugulethu Seven Memorial). Rich tradition of jazz, brass bands, and street soccer.", "facts": ["Established in 1957 on the Cape Flats.", "Name means 'our pride' in isiXhosa.", "Well known for its arts, jazz and food culture."]}, {"id": 17, "name": "Langa", "municipality": "Cape Town", "province": "Western Cape", "coordinates": {"lat": -33.9333, "lng": 18.5333}, "population": 52401, "population_year": 2011, "households": 17402, "area_km2": 3.09, "density_per_km2": 16958, "languages": {"isiXhosa": 88.2, "English": 4.6, "Afrikaans": 2.0}, "health_district": "Cape Town Metro", "life_expectancy_estimate": 68.1, "economy": "Cultural tourism hotspot with arts and crafts markets (Guga S'Thebe Cultural Centre), guest houses, and informal eateries.", "culture": "Deep musical heritage (jazz, Afro-fusion), the historic Pass Office museum, and preserved heritage quarters.", "facts": ["The oldest township in Cape Town, established in 1923.", "Name means 'sun' in isiXhosa."]}, {"id": 18, "name": "Kayamandi", "municipality": "Stellenbosch", "province": "Western Cape", "coordinates": {"lat": -33.9167, "lng": 18.85}, "population": 24645, "population_year": 2011, "households": 8412, "area_km2": 1.68, "density_per_km2": 14670, "languages": {"isiXhosa": 84.2, "Afrikaans": 8.9, "English": 3.2}, "health_district": "Cape Winelands", "life_expectancy_estimate": 67.4, "economy": "Workforce for Stellenbosch's wine, tourism and university economy, with local spaza and crafts trade.", "culture": "Traditional heritage within the Winelands, vibrant youth sports clubs, and community art centres.", "facts": ["Stellenbosch's main township, established in the 1950s.", "Name means 'pleasant home'."]}, {"id": 19, "name": "iBhayi", "municipality": "Nelson Mandela Bay (Gqeberha)", "province": "Eastern Cape", "coordinates": {"lat": -33.8833, "lng": 25.6}, "population": 237799, "population_year": 2011, "households": 66412, "area_km2": 35.84, "density_per_km2": 6635, "languages": {"isiXhosa": 91.8, "English": 3.2, "Afrikaans": 2.1}, "health_district": "Nelson Mandela Bay", "life_expectancy_estimate": 64.1, "economy": "Key residential anchor for the Gqeberha automotive manufacturing workforce. Kenako Mall retail centre, informal trades, and local transport networks.", "culture": "Historic centre of political activism and trade-union organising in the Eastern Cape. Deep Xhosa heritage, choral music, and rugby legacy.", "facts": ["Umbrella name for New Brighton, KwaZakhele and Zwide.", "New Brighton was established in 1903 — one of the oldest townships in South Africa."]}, {"id": 20, "name": "Mdantsane", "municipality": "Buffalo City (East London)", "province": "Eastern Cape", "coordinates": {"lat": -32.95, "lng": 27.75}, "population": 156955, "population_year": 2011, "households": 44618, "area_km2": 45.55, "density_per_km2": 3446, "languages": {"isiXhosa": 94.2, "English": 2.6, "Afrikaans": 0.8}, "health_district": "Buffalo City", "life_expectancy_estimate": 63.7, "economy": "Mdantsane City Mall retail hub, proximity to the Mercedes-Benz manufacturing plant, informal spazas, and commuter transport.", "culture": "Known as South Africa's boxing capital, producing numerous world champions. Rich musical and theatrical performing-arts tradition.", "facts": ["The second largest township in South Africa at one point.", "Established in the 1960s as a labour reservoir for East London."]}, {"id": 21, "name": "Motherwell", "municipality": "Nelson Mandela Bay (Gqeberha)", "province": "Eastern Cape", "coordinates": {"lat": -33.7833, "lng": 25.5833}, "population": 140351, "population_year": 2011, "households": 38912, "area_km2": 29.84, "density_per_km2": 4703, "languages": {"isiXhosa": 92.6, "English": 2.9, "Afrikaans": 1.7}, "health_district": "Nelson Mandela Bay", "life_expectancy_estimate": 64.1, "economy": "Close to the Coega Special Economic Zone and deep-water port. Commercial centres, construction micro-enterprises, and logistics.", "culture": "Established in the 1980s. Active community sports programmes, modern Xhosa urban culture, and youth entrepreneurship networks.", "facts": ["Built from the 1980s on the northern edge of Gqeberha.", "One of the fastest growing areas in the Eastern Cape."]}, {"id": 22, "name": "Duncan Village", "municipality": "Buffalo City (East London)", "province": "Eastern Cape", "coordinates": {"lat": -33.0333, "lng": 27.8667}, "population": 78412, "population_year": 2011, "households": 24810, "area_km2": 4.82, "density_per_km2": 16268, "languages": {"isiXhosa": 94.8, "English": 2.1, "Afrikaans": 0.9}, "health_district": "Buffalo City", "life_expectancy_estimate": 63.7, "economy": "Inner-city township adjacent to the East London CBD. High informal trade density, street markets, recycling, and micro-services.", "culture": "Site of historic anti-apartheid protests (1985 Duncan Village massacre). Strong community solidarity, traditional Xhosa customs, and urban arts.", "facts": ["One of East London's oldest and densest settlements."]}, {"id": 23, "name": "Mangaung", "municipality": "Bloemfontein", "province": "Free State", "coordinates": {"lat": -29.15, "lng": 26.2}, "population": 217076, "population_year": 2011, "households": 62410, "area_km2": 48.92, "density_per_km2": 4437, "languages": {"Sesotho": 74.2, "Setswana": 11.4, "isiXhosa": 6.8, "Afrikaans": 3.1}, "health_district": "Mangaung", "life_expectancy_estimate": 62.5, "economy": "Government, commercial, and transport hub. Moshoeshoe Road commercial strip, informal trading markets, automotive repair, and rail/bus nodes.", "culture": "Close to Batho, where the ANC was founded in 1912. Host area of Macufe (Mangaung African Cultural Festival).", "facts": ["The largest township in the Free State.", "Its name means 'place of the cheetah' and it gives its name to the metro municipality."]}, {"id": 24, "name": "Botshabelo", "municipality": "Mangaung", "province": "Free State", "coordinates": {"lat": -29.25, "lng": 26.7}, "population": 181712, "population_year": 2011, "households": 53010, "area_km2": 101.4, "density_per_km2": 1792, "languages": {"Sesotho": 83.6, "isiXhosa": 6.4, "Setswana": 4.2}, "health_district": "Mangaung", "life_expectancy_estimate": 62.5, "economy": "Industrial park with textile and light manufacturing. Large commuter population to Bloemfontein and high informal retail density.", "culture": "Established in the late 1970s. Deep Sesotho cultural identity, traditional dance competitions, community radio, and gospel music.", "facts": ["Name means 'place of refuge'.", "Established in 1979 as a resettlement area under apartheid."]}, {"id": 25, "name": "Thabong", "municipality": "Matjhabeng (Welkom)", "province": "Free State", "coordinates": {"lat": -27.9833, "lng": 26.7}, "population": 135613, "population_year": 2011, "households": 41240, "area_km2": 24.86, "density_per_km2": 5455, "languages": {"Sesotho": 71.8, "isiXhosa": 13.4, "Setswana": 4.1, "Xitsonga": 3.2}, "health_district": "Lejweleputswa", "life_expectancy_estimate": 61.8, "economy": "Mining economy transitioning toward agricultural and commercial diversification. Informal market hubs, taxi interchanges, and neighbourhood spazas.", "culture": "Multicultural heritage shaped by gold-mine migrant workers from Lesotho, the Eastern Cape, and Mozambique. Known for mining song traditions and local sports clubs.", "facts": ["One of the largest townships in the Free State goldfields."]}, {"id": 26, "name": "Zamdela", "municipality": "Metsimaholo (Sasolburg)", "province": "Free State", "coordinates": {"lat": -26.8167, "lng": 27.8333}, "population": 78124, "population_year": 2011, "households": 24810, "area_km2": 14.62, "density_per_km2": 5344, "languages": {"Sesotho": 68.4, "isiZulu": 11.2, "isiXhosa": 8.6, "Afrikaans": 4.1}, "health_district": "Fezile Dabi", "life_expectancy_estimate": 63.2, "economy": "Petrochemical industrial base (Sasol complex). Heavy-labour workforce, local contracting firms, and a formal/informal retail sector.", "culture": "Strong industrial union heritage and multicultural northern Free State community life, with social clubs and music venues.", "facts": ["Built for workers of the Sasol petrochemical complex."]}, {"id": 27, "name": "KwaGuqa", "municipality": "Emalahleni (Witbank)", "province": "Mpumalanga", "coordinates": {"lat": -25.8833, "lng": 29.1833}, "population": 130920, "population_year": 2011, "households": 39410, "area_km2": 26.84, "density_per_km2": 4878, "languages": {"isiZulu": 44.6, "Sepedi": 18.4, "isiNdebele": 14.2, "siSwati": 8.1}, "health_district": "Nkangala", "life_expectancy_estimate": 63.1, "economy": "Coal mining and power-generation hub (Eskom power stations). Heavy transport/trucking services, informal vending, and local construction enterprises.", "culture": "A blend of Ndebele beadwork and artistry, Zulu heritage, and industrial worker culture.", "facts": ["Coal-belt township serving eMalahleni's mines and power stations."]}, {"id": 28, "name": "Embalenhle", "municipality": "Govan Mbeki (Secunda)", "province": "Mpumalanga", "coordinates": {"lat": -26.5333, "lng": 29.1667}, "population": 118889, "population_year": 2011, "households": 36840, "area_km2": 21.42, "density_per_km2": 5550, "languages": {"isiZulu": 58.4, "Sesotho": 12.6, "isiXhosa": 8.9, "Sepedi": 6.2}, "health_district": "Gert Sibande", "life_expectancy_estimate": 62.8, "economy": "Synthetic fuel and chemical refining workforce hub (Sasol Secunda). Commercial retail centres, industrial sub-contracting, and transport services.", "culture": "Cosmopolitan township with strong soccer leagues, community arts groups, and Mpumalanga township cuisine.", "facts": ["Built for Sasol's Secunda synfuels complex.", "Name means 'place of light'."]}, {"id": 29, "name": "Seshego", "municipality": "Polokwane", "province": "Limpopo", "coordinates": {"lat": -23.85, "lng": 29.3833}, "population": 83863, "population_year": 2011, "households": 24120, "area_km2": 28.45, "density_per_km2": 2948, "languages": {"Sepedi": 82.4, "Xitsonga": 4.6, "Tshivenda": 3.8, "English": 2.9}, "health_district": "Capricorn", "life_expectancy_estimate": 65.8, "economy": "Economic node serving the Limpopo capital. Seshego Circle shopping centre, small-scale manufacturing, automotive repair, and public-sector workforce.", "culture": "Major political and intellectual hub of Limpopo with a rich Sepedi literary and musical heritage.", "facts": ["Polokwane's largest township, established in the 1950s."]}, {"id": 30, "name": "Thohoyandou", "municipality": "Thulamela", "province": "Limpopo", "coordinates": {"lat": -22.95, "lng": 30.4833}, "population": 69453, "population_year": 2011, "households": 19840, "area_km2": 42.62, "density_per_km2": 1630, "languages": {"Tshivenda": 88.6, "Xitsonga": 4.2, "English": 2.4}, "health_district": "Vhembe", "life_expectancy_estimate": 65.1, "economy": "Administrative and educational capital of Vhembe. Thavhani Mall, University of Venda campus economy, subtropical fruit agriculture, and informal cross-border trade with Zimbabwe.", "culture": "Cultural capital of the Vhavenda people. Near sacred sites (Lake Fundudzi, Thathe Vondo forest), Domba dance heritage, and royal heritage.", "facts": ["Capital of the former Venda homeland.", "Name means 'head of the elephant'."]}, {"id": 31, "name": "Nkowankowa", "municipality": "Tzaneen", "province": "Limpopo", "coordinates": {"lat": -23.85, "lng": 30.2833}, "population": 31420, "population_year": 2011, "households": 8940, "area_km2": 11.84, "density_per_km2": 2654, "languages": {"Xitsonga": 64.2, "Sepedi": 26.8, "English": 2.4}, "health_district": "Mopani", "life_expectancy_estimate": 64.2, "economy": "Industrial area with fruit processing, packaging, timber processing, and agricultural supply chains serving Tzaneen's citrus and subtropical farms.", "culture": "Xitsonga and Sepedi cultural fusion, a lively Xitsonga electronic music scene, and active community football.", "facts": ["Township in the Tzaneen agricultural belt."]}, {"id": 32, "name": "Jouberton", "municipality": "Matlosana (Klerksdorp)", "province": "North West", "coordinates": {"lat": -26.85, "lng": 26.6}, "population": 114220, "population_year": 2011, "households": 32410, "area_km2": 18.92, "density_per_km2": 6037, "languages": {"Setswana": 58.4, "Sesotho": 18.2, "isiXhosa": 11.6, "Afrikaans": 4.1}, "health_district": "Dr Kenneth Kaunda", "life_expectancy_estimate": 63.0, "economy": "Transitioning gold-mining economy, commercial retail nodes, micro-manufacturing, and agricultural services.", "culture": "Rich Setswana cultural traditions, community arts initiatives, and active athletic clubs.", "facts": ["Klerksdorp's largest township, in the KOSH gold belt."]}, {"id": 33, "name": "Ikageng", "municipality": "JB Marks (Potchefstroom)", "province": "North West", "coordinates": {"lat": -26.7, "lng": 27.05}, "population": 87701, "population_year": 2011, "households": 25840, "area_km2": 16.45, "density_per_km2": 5331, "languages": {"Setswana": 64.2, "Sesotho": 16.4, "isiXhosa": 8.2, "Afrikaans": 4.8}, "health_district": "Dr Kenneth Kaunda", "life_expectancy_estimate": 63.0, "economy": "Student and commuter hub connected to North-West University (Potchefstroom Campus). Retail centres, hospitality, and micro-entrepreneurship.", "culture": "Anti-apartheid struggle history, a vibrant Setswana hip-hop (Motswako) subculture, and community youth programmes.", "facts": ["Potchefstroom's main township."]}, {"id": 34, "name": "Phokeng", "municipality": "Rustenburg", "province": "North West", "coordinates": {"lat": -25.5833, "lng": 27.1833}, "population": 34812, "population_year": 2011, "households": 10840, "area_km2": 24.62, "density_per_km2": 1414, "languages": {"Setswana": 74.2, "isiXhosa": 6.8, "Xitsonga": 4.9, "Afrikaans": 2.1}, "health_district": "Bojanala Platinum", "life_expectancy_estimate": 63.6, "economy": "Capital of the Royal Bafokeng Nation — a major shareholder in platinum mining. High civic infrastructure investment, sports facilities (Royal Bafokeng Stadium), and corporate administration.", "culture": "Unique communal land administration and monarchy system, Setswana royal heritage, and a 2010 FIFA World Cup host venue.", "facts": ["Royal seat of the Bafokeng nation — a community with substantial platinum royalties."]}, {"id": 35, "name": "Galeshewe", "municipality": "Sol Plaatje (Kimberley)", "province": "Northern Cape", "coordinates": {"lat": -28.7333, "lng": 24.7333}, "population": 107920, "population_year": 2011, "households": 28410, "area_km2": 18.64, "density_per_km2": 5790, "languages": {"Setswana": 62.4, "Afrikaans": 22.8, "isiXhosa": 6.4, "English": 3.1}, "health_district": "Frances Baard", "life_expectancy_estimate": 64.0, "economy": "Regional hub for Sol Plaatje municipality and diamond mining. Galeshewe Plaza commercial node, informal trade, transport logistics, and public-sector employment.", "culture": "Named after Batlhaping Chief Galeshewe, an 1897 anti-colonial leader. Rich Setswana and Griqua heritage, early political resistance landmarks, and local jazz traditions.", "facts": ["One of the oldest Black townships in South Africa, with roots in the 1870s diamond fields.", "Named after Chief Galeshewe of the Batlhaping."]}, {"id": 36, "name": "Paballelo", "municipality": "Upington", "province": "Northern Cape", "coordinates": {"lat": -28.45, "lng": 21.2333}, "population": 21840, "population_year": 2011, "households": 5640, "area_km2": 4.12, "density_per_km2": 5301, "languages": {"Afrikaans": 68.4, "isiXhosa": 18.2, "Setswana": 7.6}, "health_district": "ZF Mgcawu", "life_expectancy_estimate": 64.9, "economy": "Agricultural base tied to Orange River viticulture, dried-fruit production, solar energy farms, and local micro-retailing.", "culture": "Kalahari township culture blending Afrikaans, Xhosa, and Tswana speakers, with sports tournaments and community storytelling.", "facts": ["Upington's main township on the Orange River."]}]};
+
+    const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g,
+        c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+    const norm = s => String(s || "").toLowerCase().replace(/[^a-z]/g, "");
+    const fmt  = n => Number(n).toLocaleString("en-US");
+
+    let KASI = [];
+    let MAX_POP = 1;
+
+    async function loadData(){
+        let data = null;
+        try {
+            const r = await fetch("kasi-data.json", { cache: "no-cache" });
+            if (r.ok) data = await r.json();
+        } catch (e) { /* offline / file:// — use embedded copy */ }
+        if (!data || !Array.isArray(data.townships) || !data.townships.length) data = EMBEDDED;
+
+        KASI = data.townships.map((t, i) => ({
+            id: i,
+            name: t.name,
+            muni: t.municipality,
+            province: t.province,
+            lat: t.coordinates.lat,
+            lon: t.coordinates.lng,
+            pop: t.population || 0,
+            facts: t.facts || [],
+            provKey: norm(t.province),
+            profile: t
+        }));
+        MAX_POP = Math.max(1, ...KASI.map(k => k.pop));
+    }
+    const dataReady = loadData();
+
+    const radiusFor = p => 4.5 + 8 * Math.pow(p / MAX_POP, 0.4);
+
+    const PROVINCES = [
+        ["gauteng", "Gauteng"],
+        ["kwazulunatal", "KwaZulu-Natal"],
+        ["westerncape", "Western Cape"],
+        ["easterncape", "Eastern Cape"],
+        ["freestate", "Free State"],
+        ["mpumalanga", "Mpumalanga"],
+        ["limpopo", "Limpopo"],
+        ["northwest", "North West"],
+        ["northerncape", "Northern Cape"]
+    ];
+    const PROV_KEYS = new Set(PROVINCES.map(p => p[0]));
+    const byId = id => KASI[id];
+
+    /* =========================================================
+       2. MAP STATE
+       ========================================================= */
+    let map = null;
+    let geoLayer = null;
+    let markerLayer = null;
+    let selectedKey = null;
+    let activeChart = null;
+    let mapReady = null;
+    let popupTimer = null;
+    const layersByKey = {};
+
+    const BASE_STYLE = { color:"#7dd3fc", weight:1.3, opacity:.85, fillColor:"#0ea5e9", fillOpacity:.09 };
+    const SEL_STYLE  = { color:"#fbbf24", weight:3,   opacity:1,   fillColor:"#f59e0b", fillOpacity:.22 };
+
+    /* =========================================================
+       3. MAP INIT
+       ========================================================= */
+    function initMap(){
+        if (typeof L === "undefined") throw new Error("Leaflet failed to load");
+
+        map = L.map("map", {
+            zoomControl: false,
+            minZoom: 4,
+            maxZoom: 15,
+            zoomSnap: 0.25,
+            worldCopyJump: false
+        }).setView([-29.0, 24.5], 5);
+
+        L.tileLayer(
+            "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+            { maxZoom: 18, attribution: "Imagery © Esri, Maxar, Earthstar Geographics" }
+        ).addTo(map);
+
+        L.control.zoom({ position: "bottomright" }).addTo(map);
+        markerLayer = L.layerGroup().addTo(map);
+
+        buildMarkers();
+        renderChips();
+        showAll();
+        attachChartHandlers();
+        setTimeout(() => map.invalidateSize(), 60);
+
+        // Province outlines load in the background so the map is usable immediately.
+        loadProvinces().then(gj => {
+            if (!gj) { toast("Province boundaries could not load — kasi markers still work."); return; }
+            addProvinces(gj);
+            refreshStyles();
+            if (!selectedKey) map.flyToBounds(geoLayer.getBounds().pad(0.04), { duration: .8 });
+        }).catch(() => toast("Province boundaries could not load — kasi markers still work."));
+    }
+
+    /* =========================================================
+       4. GEOJSON LOADING
+       ========================================================= */
+    async function fetchJson(url, ms = 8000){
+        const ctl = new AbortController();
+        const t = setTimeout(() => ctl.abort(), ms);
+        try {
+            const res = await fetch(url, { signal: ctl.signal });
+            if (!res.ok) return null;
+            return await res.json();
+        } catch (e) { return null; }
+        finally { clearTimeout(t); }
+    }
+
+    async function loadProvinces(){
+        const urls = [
+            "https://raw.githubusercontent.com/wmgeolab/geoBoundaries/main/releaseData/gbOpen/ZAF/ADM1/geoBoundaries-ZAF-ADM1_simplified.geojson",
+            "https://raw.githubusercontent.com/wmgeolab/geoBoundaries/main/releaseData/gbOpen/ZAF/ADM1/geoBoundaries-ZAF-ADM1.geojson"
+        ];
+        const meta = await fetchJson("https://www.geoboundaries.org/api/current/gbOpen/ZAF/ADM1/");
+        if (meta) {
+            const u = meta.simplifiedGeometryGeoJSON || meta.gjDownloadURL;
+            if (u) urls.unshift(u);
+        }
+        for (const u of urls) {
+            const gj = await fetchJson(u, 15000);
+            if (gj && Array.isArray(gj.features) && gj.features.length) return gj;
+        }
+        return null;
+    }
+
+    function provinceNameOf(props){
+        if (!props) return "";
+        return props.shapeName || props.name || props.NAME_1 || props.PROVINCE ||
+            props.province || props.PROV_NAME || props.SHAPE_NAME || "";
+    }
+
+    function addProvinces(gj){
+        if (geoLayer) { map.removeLayer(geoLayer); geoLayer = null; }
+        geoLayer = L.geoJSON(gj, {
+            style: () => BASE_STYLE,
+            onEachFeature: (feature, layer) => {
+                const raw = provinceNameOf(feature.properties);
+                const key = norm(raw);
+                layer._provKey = key;
+                if (key) layersByKey[key] = layer;
+                layer.on("click", () => { if (PROV_KEYS.has(key)) selectProvince(key); });
+            }
+        }).addTo(map);
+        geoLayer.bringToBack();
+        markerLayer.eachLayer(l => l.bringToFront && l.bringToFront());
+    }
+
+    function refreshStyles(){
+        if (!geoLayer) return;
+        geoLayer.eachLayer(l => l.setStyle(l._provKey === selectedKey ? SEL_STYLE : BASE_STYLE));
+        markerLayer.eachLayer(l => l.bringToFront && l.bringToFront());
+    }
+
+    /* =========================================================
+       5. MARKERS + POPUPS
+       ========================================================= */
+    function popupHtml(k){
+        const p = k.profile;
+        const langs = Object.entries(p.languages || {})
+            .map(([lang, pct]) => `${esc(lang)} ${pct}%`).join(" · ");
+        const facts = (k.facts || []).map(f => `<li>${esc(f)}</li>`).join("");
+
+        return `<div class="pop">
+    <h3>${esc(k.name)}</h3>
+    <div class="pop-sub">${esc(k.muni)} · ${esc(k.province)}</div>
+    <div class="pop-pop">${fmt(p.population)} people <span style="font-size:.7rem;color:#8ea3b8;">(${fmt(p.households)} households · Census ${esc(p.population_year || 2011)})</span></div>
+    <div style="font-size:.75rem;color:#c6d5e4;margin-top:4px;">
+      <b>Area:</b> ${p.area_km2} km² &nbsp;|&nbsp; <b>Density:</b> ${fmt(p.density_per_km2)}/km²<br>
+      <b>Health district:</b> ${esc(p.health_district)} &nbsp;|&nbsp; <b>Life expectancy:</b> ~${p.life_expectancy_estimate} yrs (est.)
+    </div>
+    <div style="font-size:.75rem;color:#c6d5e4;margin-top:4px;"><b>Languages:</b> ${langs}</div>
+    <div style="font-size:.78rem;color:#c6d5e4;margin-top:6px;"><b>Economy:</b> ${esc(p.economy)}</div>
+    <div style="font-size:.78rem;color:#c6d5e4;margin-top:4px;"><b>Culture &amp; Heritage:</b> ${esc(p.culture)}</div>
+    ${atmSummaryHtml(k)}
+    ${facts ? `<ul>${facts}</ul>` : ""}
+    <canvas id="langChart-${k.id}" width="250" height="170"></canvas>
+  </div>`;
+    }
+
+    function buildMarkers(){
+        KASI.forEach(k => {
+            const m = L.circleMarker([k.lat, k.lon], {
+                radius: radiusFor(k.pop),
+                color: "#1a1205",
+                weight: 1.5,
+                fillColor: "#fbbf24",
+                fillOpacity: 0.95
+            });
+            m.bindPopup(() => popupHtml(k), { maxWidth: 340, autoPanPadding: [24, 24] });
+            m.bindTooltip(k.name, { direction: "top", offset: [0, -4], className: "kasi-tip" });
+            m.on("click", () => highlightRow(k.id));
+            k.marker = m;
+        });
+    }
+
+    function paintMarkers(provKey){
+        markerLayer.clearLayers();
+        KASI.forEach(k => {
+            if (provKey && k.provKey !== provKey) return;
+            markerLayer.addLayer(k.marker);
+        });
+    }
+
+
+    /* =========================================================
+       5b. ATM LAYER  (data from kasi-atms.json, made by fetch_atms.py)
+       ========================================================= */
+    const OP_COLORS = {
+        "Capitec":"#38bdf8", "Absa":"#f87171", "FNB":"#2dd4bf", "Standard Bank":"#60a5fa",
+        "Nedbank":"#34d399", "TymeBank":"#f472b6", "Independent / White-Label":"#a1a1aa"
+    };
+    let ATM_DATA = null;       // {townshipName: {total, operator_breakdown, pins[]}}
+    let atmLayer = null;
+    let atmOn = false;
+    let atmRenderer = null;
+
+    async function loadAtms(){
+        if (ATM_DATA) return true;
+        try {
+            const r = await fetch("kasi-atms.json", { cache: "no-cache" });
+            if (!r.ok) throw new Error("HTTP " + r.status);
+            const j = await r.json();
+            if (!j || !j.townships) throw new Error("bad format");
+            ATM_DATA = j.townships;
+            return true;
+        } catch (e) {
+            return false;
+        }
+    }
+
+    function atmSummaryHtml(k){
+        if (!ATM_DATA) return "";
+        const a = ATM_DATA[k.name];
+        if (!a) return "";
+        if (!a.total) return `<div style="font-size:.78rem;color:#c6d5e4;margin-top:6px;"><b>ATMs:</b> none mapped in OpenStreetMap</div>`;
+        const parts = Object.entries(a.operator_breakdown || {})
+            .filter(([, n]) => n > 0).sort((x, y) => y[1] - x[1])
+            .map(([op, n]) => `${esc(op)} ${n}`).join(" · ");
+        return `<div style="font-size:.78rem;color:#c6d5e4;margin-top:6px;"><b>ATMs mapped:</b> ${a.total}<br><span style="font-size:.72rem;color:#8ea3b8;">${parts}</span></div>`;
+    }
+
+    function atmPopupHtml(p, township){
+        const line = (label, v) => v ? `<div><b>${label}:</b> ${esc(v)}</div>` : "";
+        return `<div class="pop">
+      <h3>${esc(p.name)}</h3>
+      <div class="pop-sub">${p.type === "branch" ? "Bank branch with ATM" : "ATM"} · ${esc(township)}</div>
+      <div style="font-size:.78rem;color:#c6d5e4;margin-top:6px;">
+        <div><b>Operator:</b> ${esc(p.operator)}</div>
+        ${line("Address", p.address)}
+        ${line("Hours", p.opening_hours)}
+        <div style="color:#8ea3b8;font-size:.7rem;margin-top:4px;">Source: OpenStreetMap contributors</div>
+      </div></div>`;
+    }
+
+    function renderLegend(){
+        const el = document.getElementById("atmLegend");
+        el.innerHTML = Object.entries(OP_COLORS)
+            .map(([op, c]) => `<div><i style="background:${c}"></i>${esc(op)}</div>`).join("");
+        el.classList.toggle("on", atmOn);
+    }
+
+    function paintAtms(){
+        if (!map) return;
+        if (!atmLayer) atmLayer = L.layerGroup();
+        atmLayer.clearLayers();
+        if (!atmOn || !ATM_DATA) { map.removeLayer(atmLayer); renderLegend(); return; }
+        if (!atmRenderer) atmRenderer = L.canvas({ padding: 0.5 });
+
+        KASI.forEach(k => {
+            if (selectedKey && k.provKey !== selectedKey) return;
+            const a = ATM_DATA[k.name];
+            if (!a) return;
+            a.pins.forEach(p => {
+                const m = L.circleMarker([p.lat, p.lng], {
+                    renderer: atmRenderer,
+                    radius: p.type === "branch" ? 6 : 4.5,
+                    color: "#05080d", weight: 1,
+                    fillColor: OP_COLORS[p.operator] || "#a1a1aa", fillOpacity: .95
+                });
+                m.bindTooltip(`${p.operator}${p.type === "branch" ? " (branch)" : ""}`, { direction: "top", className: "kasi-tip" });
+                m.bindPopup(() => atmPopupHtml(p, k.name), { maxWidth: 260 });
+                atmLayer.addLayer(m);
+            });
+        });
+        if (!map.hasLayer(atmLayer)) atmLayer.addTo(map);
+        renderLegend();
+    }
+
+    async function toggleAtms(){
+        const btn = document.getElementById("atmBtn");
+        if (!atmOn) {
+            const ok = await loadAtms();
+            if (!ok) {
+                toast("ATM data not found. Run fetch_atms.py to create kasi-atms.json (and serve this page over http if opened from disk).");
+                return;
+            }
+        }
+        atmOn = !atmOn;
+        btn.classList.toggle("on", atmOn);
+        btn.setAttribute("aria-pressed", String(atmOn));
+        paintAtms();
+    }
+    document.getElementById("atmBtn").addEventListener("click", toggleAtms);
+
+    /* =========================================================
+       6. PANEL / LIST
+       ========================================================= */
+    function renderChips(){
+        const wrap = document.getElementById("chips");
+        wrap.innerHTML = PROVINCES
+            .map(([k, label]) => `<button class="chip" data-key="${k}">${esc(label)}</button>`)
+            .join("");
+        wrap.querySelectorAll(".chip").forEach(btn => {
+            btn.addEventListener("click", () => selectProvince(btn.dataset.key));
+        });
+    }
+
+    function updateChips(){
+        document.querySelectorAll(".chip").forEach(c =>
+            c.classList.toggle("on", c.dataset.key === selectedKey));
+    }
+
+    function setHeader(title, sub){
+        document.getElementById("panelTitle").textContent = title;
+        document.getElementById("panelSub").textContent = sub;
+    }
+
+    function openPopupWhenSettled(k){
+        clearTimeout(popupTimer);
+        let done = false;
+        const open = () => {
+            if (done) return;
+            done = true;
+            clearTimeout(popupTimer);
+            k.marker.openPopup();
+            highlightRow(k.id);
+        };
+        map.once("moveend", open);
+        popupTimer = setTimeout(open, 1600); // fallback if moveend never fires
+    }
+
+    function renderList(provKey){
+        const list = document.getElementById("panelList");
+        const items = KASI
+            .filter(k => !provKey || k.provKey === provKey)
+            .sort((a, b) => b.pop - a.pop);
+
+        list.innerHTML = items.map(k => `
+    <button class="kasi-row" data-kasi="${k.id}">
+      <span class="kr-name">${esc(k.name)}</span>
+      <span class="kr-meta">${esc(k.muni)} · ${esc(k.province)}</span>
+      <span class="kr-pop">${k.pop ? fmt(k.pop) : "—"}</span>
+    </button>`).join("");
+
+        list.querySelectorAll(".kasi-row").forEach(btn => {
+            btn.addEventListener("click", () => {
+                const k = byId(+btn.dataset.kasi);
+                if (!k) return;
+                map.flyTo([k.lat, k.lon], Math.max(map.getZoom(), 11), { duration: .85 });
+                openPopupWhenSettled(k);
+                document.querySelectorAll(".kasi-row.active").forEach(e => e.classList.remove("active"));
+                btn.classList.add("active");
+            });
+        });
+        list.scrollTop = 0;
+    }
+
+    function highlightRow(id){
+        const el = document.querySelector(`[data-kasi="${id}"]`);
+        if (!el) return;
+        document.querySelectorAll(".kasi-row.active").forEach(e => e.classList.remove("active"));
+        el.classList.add("active");
+        el.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    }
+
+    /* =========================================================
+       7. SELECTION LOGIC
+       ========================================================= */
+    function showAll(){
+        selectedKey = null;
+        refreshStyles();
+        updateChips();
+        paintMarkers(null);
+        renderList(null);
+        setHeader("All kasis", `${KASI.length} kasis · 9 provinces`);
+        paintAtms();
+        if (geoLayer) map.flyToBounds(geoLayer.getBounds().pad(0.04), { duration: .8 });
+        else map.flyTo([-29.0, 24.5], 5, { duration: .8 });
+    }
+
+    function applyProvince(key, fly){
+        selectedKey = key;
+        refreshStyles();
+        updateChips();
+        paintMarkers(key);
+
+        const count = KASI.filter(k => k.provKey === key).length;
+        const nice = (PROVINCES.find(p => p[0] === key) || [])[1] || "Province";
+        renderList(key);
+        setHeader(nice, `${count} kasi${count === 1 ? "" : "s"}`);
+        paintAtms();
+
+        if (!fly) return;
+        const layer = layersByKey[key];
+        if (layer) {
+            layer.bringToFront();
+            markerLayer.eachLayer(l => l.bringToFront && l.bringToFront());
+            map.flyToBounds(layer.getBounds().pad(0.12), { duration: 1 });
+        } else {
+            const pts = KASI.filter(k => k.provKey === key).map(k => [k.lat, k.lon]);
+            if (pts.length) map.flyToBounds(L.latLngBounds(pts).pad(0.35), { duration: 1 });
+        }
+    }
+
+    function selectProvince(key){
+        if (!key || !PROV_KEYS.has(key)) return;
+        map.closePopup();
+        applyProvince(key, true);
+    }
+
+    function focusKasi(k){
+        if (!k) return;
+        applyProvince(k.provKey, false);
+        map.flyTo([k.lat, k.lon], 11, { duration: 1.1 });
+        openPopupWhenSettled(k);
+    }
+
+    /* =========================================================
+       8. TOAST
+       ========================================================= */
+    let toastTimer = null;
+    function toast(msg){
+        const el = document.getElementById("toast");
+        el.textContent = msg;
+        el.classList.add("on");
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => el.classList.remove("on"), 4200);
+    }
+
+    /* =========================================================
+       9. SCREEN FLOW
+       ========================================================= */
+    function ensureMap(){
+        if (!mapReady) {
+            mapReady = dataReady.then(() => initMap());
+            mapReady.catch(err => {
+                console.error(err);
+                mapReady = null; // allow a retry
+                toast("The map could not start. Check your connection and try again.");
+            });
+        }
+        return mapReady;
+    }
+
+    async function openMap(targetKasi){
+        const screen = document.getElementById("mapScreen");
+        screen.classList.add("on");
+        screen.setAttribute("aria-hidden", "false");
+
+        try { await ensureMap(); } catch (e) { return; }
+
+        requestAnimationFrame(() => {
+            map.invalidateSize();
+            if (targetKasi) focusKasi(targetKasi);
+        });
+    }
+
+    function closeMap(){
+        const screen = document.getElementById("mapScreen");
+        if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+        if (map) map.closePopup();
+        clearTimeout(popupTimer);
+        restorePanel();
+        screen.classList.remove("on");
+        screen.setAttribute("aria-hidden", "true");
+        document.getElementById("suggest").classList.remove("on");
+    }
+
+    document.getElementById("listBtn").addEventListener("click", () => openMap(null));
+    document.getElementById("backBtn").addEventListener("click", closeMap);
+    document.getElementById("showAllBtn").addEventListener("click", () => { if (map) { map.closePopup(); showAll(); } });
+    window.addEventListener("resize", () => { if (map) map.invalidateSize(); });
+
+    /* =========================================================
+       10. SEARCH
+       ========================================================= */
+    const searchEl = document.getElementById("search");
+    const sugEl = document.getElementById("suggest");
+    let kbIndex = -1;
+
+    function setKb(i){
+        const items = sugEl.querySelectorAll(".sug");
+        items.forEach(e => e.classList.remove("kb"));
+        if (!items.length) { kbIndex = -1; return; }
+        kbIndex = (i + items.length) % items.length;
+        items[kbIndex].classList.add("kb");
+        items[kbIndex].scrollIntoView({ block: "nearest" });
+    }
+
+    searchEl.addEventListener("input", () => {
+        kbIndex = -1;
+        const raw = searchEl.value.trim();
+        const q = norm(raw);
+        if (!q) {
+            sugEl.classList.remove("on");
+            sugEl.innerHTML = "";
+            return;
+        }
+        const hits = KASI
+            .filter(k => norm(`${k.name} ${k.muni} ${k.province}`).includes(q))
+            .sort((a, b) => b.pop - a.pop)
+            .slice(0, 8);
+
+        sugEl.innerHTML = hits.length
+            ? hits.map(k => `<button class="sug" data-id="${k.id}">
+          <b>${esc(k.name)}</b><span>${esc(k.muni)} · ${esc(k.province)}</span></button>`).join("")
+            : `<div class="sug-empty">No kasi found for "${esc(searchEl.value)}"</div>`;
+
+        sugEl.classList.add("on");
+    });
+
+    sugEl.addEventListener("click", e => {
+        const btn = e.target.closest(".sug");
+        if (!btn) return;
+        const k = byId(+btn.dataset.id);
+        sugEl.classList.remove("on");
+        openMap(k);
+    });
+
+    searchEl.addEventListener("keydown", e => {
+        if (e.key === "ArrowDown") { e.preventDefault(); setKb(kbIndex + 1); }
+        else if (e.key === "ArrowUp") { e.preventDefault(); setKb(kbIndex - 1); }
+        else if (e.key === "Enter") {
+            const items = sugEl.querySelectorAll(".sug");
+            const pick = items[kbIndex >= 0 ? kbIndex : 0];
+            sugEl.classList.remove("on");
+            openMap(pick ? byId(+pick.dataset.id) : null);
+        }
+        else if (e.key === "Escape") sugEl.classList.remove("on");
+    });
+
+    document.addEventListener("click", e => {
+        if (!e.target.closest(".search-wrap")) sugEl.classList.remove("on");
+    });
+
+    /* =========================================================
+       11. MINIMIZE PANEL / FULLSCREEN
+       ========================================================= */
+    const panelEl     = document.getElementById("panel");
+    const minBtn      = document.getElementById("minBtn");
+    const restoreBtn  = document.getElementById("restoreBtn");
+    const fsBtn       = document.getElementById("fsBtn");
+    const mapScreenEl = document.getElementById("mapScreen");
+
+    function minimizePanel(){
+        panelEl.classList.add("minimized");
+        restoreBtn.classList.add("on");
+    }
+    function restorePanel(){
+        panelEl.classList.remove("minimized");
+        restoreBtn.classList.remove("on");
+    }
+
+    minBtn.addEventListener("click", minimizePanel);
+    restoreBtn.addEventListener("click", restorePanel);
+
+    document.addEventListener("keydown", e => {
+        if (e.key !== "Escape") return;
+        if (!mapScreenEl.classList.contains("on")) return;
+        if (document.fullscreenElement) return;
+        panelEl.classList.contains("minimized") ? restorePanel() : minimizePanel();
+    });
+
+    if (!mapScreenEl.requestFullscreen) fsBtn.style.display = "none"; // e.g. iPhone Safari
+
+    fsBtn.addEventListener("click", async () => {
+        try {
+            if (!document.fullscreenElement) await mapScreenEl.requestFullscreen();
+            else await document.exitFullscreen();
+        } catch (err) {
+            toast("Fullscreen isn't available in this browser.");
+        }
+    });
+
+    document.addEventListener("fullscreenchange", () => {
+        fsBtn.textContent = document.fullscreenElement ? "⛶ Exit fullscreen" : "⛶ Fullscreen";
+        setTimeout(() => { if (map) map.invalidateSize(); }, 150);
+    });
+
+    /* =========================================================
+       12. LANGUAGE PIE CHART
+       ========================================================= */
+    function destroyChart(){
+        if (activeChart) {
+            try { activeChart.destroy(); } catch (e) {}
+            activeChart = null;
+        }
+    }
+
+    function attachChartHandlers(){
+        map.on("popupopen", e => {
+            destroyChart();
+            if (typeof Chart === "undefined") return;
+
+            const node = e.popup.getElement();
+            const canvas = node && node.querySelector("canvas");
+            if (!canvas) return;
+
+            const kasi = KASI.find(k => k.id === Number(canvas.id.replace("langChart-", "")));
+            if (!kasi || !kasi.profile || !kasi.profile.languages) return;
+
+            const langs = kasi.profile.languages;
+            const labels = Object.keys(langs);
+            const values = Object.values(langs);
+            const other = +(100 - values.reduce((a, b) => a + b, 0)).toFixed(1);
+            if (other > 0.5) { labels.push("Other"); values.push(other); }
+
+            const palette = ["#fbbf24","#38bdf8","#a78bfa","#34d399","#f87171","#f472b6","#60a5fa","#facc15"];
+            const colors = labels.map((l, i) => l === "Other" ? "#64748b" : palette[i % palette.length]);
+
+            try {
+                activeChart = new Chart(canvas, {
+                    type: "pie",
+                    data: { labels, datasets: [{ data: values, backgroundColor: colors, borderColor: "#0d131b", borderWidth: 2 }] },
+                    options: {
+                        responsive: false,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { position: "bottom", labels: { color: "#e8eef6", font: { size: 10 }, boxWidth: 10, padding: 6 } },
+                            tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.parsed}%` } }
+                        }
+                    }
+                });
+            } catch (err) {
+                console.warn("Chart render failed:", err);
+            }
+        });
+
+        map.on("popupclose", destroyChart);
+    }
+</script>
+</body>
+</html>
